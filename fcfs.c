@@ -7,3 +7,5 @@
 #include <time.h> 
 #include <signal.h>
 #include <sys/time.h>
+
+#define WORKLOAD1 100000
