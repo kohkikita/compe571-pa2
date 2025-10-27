@@ -13,10 +13,11 @@
 #define WORKLOAD3 25000
 #define WORKLOAD4 10000
 
-// MLFQ: 3 queues with increasing time quantums
-#define QUEUE0_QUANTUM 2000   // Highest priority, shortest quantum
-#define QUEUE1_QUANTUM 4000   // Medium priority, medium quantum
-#define QUEUE2_QUANTUM 8000   // Lowest priority, longest quantum
+// MLFQ: 2 queues - Round Robin for high priority, FCFS for low priority
+#define QUANTUM1 2000
+#define QUANTUM2 2000
+#define QUANTUM3 2000
+#define QUANTUM4 2000
 
 void myfunction(int param){
 	int i = 2;
@@ -61,114 +62,88 @@ int main(){
 	if (pid4 == 0){ myfunction(WORKLOAD4); exit(0); }
 	kill(pid4, SIGSTOP);
 
-	// Initialize: all processes start in queue 0 (highest priority)
+	// Initialize: all processes start in queue 0 (high priority, round-robin)
 	running1 = 1; queue1 = 0;
 	running2 = 1; queue2 = 0;
 	running3 = 1; queue3 = 0;
 	running4 = 1; queue4 = 0;
 
 	while (running1 > 0 || running2 > 0 || running3 > 0 || running4 > 0){
-		// Queue 0 (highest priority) - shortest quantum
+		// Queue 0 (high priority) - Round Robin with time slicing
 		if (running1 > 0 && queue1 == 0){
 			if (!first1){ gettimeofday(&t1_start, NULL); first1 = 1; }
 			kill(pid1, SIGCONT);
-			usleep(QUEUE0_QUANTUM);
+			usleep(QUANTUM1);
 			kill(pid1, SIGSTOP);
-			queue1 = 1;  // Demote to queue 1
+			queue1 = 1;  // Demote to queue 1 (FCFS)
 		}
 		if (running2 > 0 && queue2 == 0){
 			if (!first2){ gettimeofday(&t2_start, NULL); first2 = 1; }
 			kill(pid2, SIGCONT);
-			usleep(QUEUE0_QUANTUM);
+			usleep(QUANTUM2);
 			kill(pid2, SIGSTOP);
 			queue2 = 1;
 		}
 		if (running3 > 0 && queue3 == 0){
 			if (!first3){ gettimeofday(&t3_start, NULL); first3 = 1; }
 			kill(pid3, SIGCONT);
-			usleep(QUEUE0_QUANTUM);
+			usleep(QUANTUM3);
 			kill(pid3, SIGSTOP);
 			queue3 = 1;
 		}
 		if (running4 > 0 && queue4 == 0){
 			if (!first4){ gettimeofday(&t4_start, NULL); first4 = 1; }
 			kill(pid4, SIGCONT);
-			usleep(QUEUE0_QUANTUM);
+			usleep(QUANTUM4);
 			kill(pid4, SIGSTOP);
 			queue4 = 1;
 		}
 
-		// Queue 1 (medium priority) - medium quantum
+		// Queue 1 (low priority) - FCFS (run to completion)
+		// Only one process runs at a time until completion
 		if (running1 > 0 && queue1 == 1){
 			if (!first1){ gettimeofday(&t1_start, NULL); first1 = 1; }
 			kill(pid1, SIGCONT);
-			usleep(QUEUE1_QUANTUM);
-			kill(pid1, SIGSTOP);
-			queue1 = 2;  // Demote to queue 2
-		}
-		if (running2 > 0 && queue2 == 1){
-			if (!first2){ gettimeofday(&t2_start, NULL); first2 = 1; }
-			kill(pid2, SIGCONT);
-			usleep(QUEUE1_QUANTUM);
-			kill(pid2, SIGSTOP);
-			queue2 = 2;
-		}
-		if (running3 > 0 && queue3 == 1){
-			if (!first3){ gettimeofday(&t3_start, NULL); first3 = 1; }
-			kill(pid3, SIGCONT);
-			usleep(QUEUE1_QUANTUM);
-			kill(pid3, SIGSTOP);
-			queue3 = 2;
-		}
-		if (running4 > 0 && queue4 == 1){
-			if (!first4){ gettimeofday(&t4_start, NULL); first4 = 1; }
-			kill(pid4, SIGCONT);
-			usleep(QUEUE1_QUANTUM);
-			kill(pid4, SIGSTOP);
-			queue4 = 2;
-		}
-
-		// Queue 2 (lowest priority) - longest quantum
-		if (running1 > 0 && queue1 == 2){
-			if (!first1){ gettimeofday(&t1_start, NULL); first1 = 1; }
-			kill(pid1, SIGCONT);
-			usleep(QUEUE2_QUANTUM);
-			kill(pid1, SIGSTOP);
-			// Stay in queue 2
-		}
-		if (running2 > 0 && queue2 == 2){
-			if (!first2){ gettimeofday(&t2_start, NULL); first2 = 1; }
-			kill(pid2, SIGCONT);
-			usleep(QUEUE2_QUANTUM);
-			kill(pid2, SIGSTOP);
-		}
-		if (running3 > 0 && queue3 == 2){
-			if (!first3){ gettimeofday(&t3_start, NULL); first3 = 1; }
-			kill(pid3, SIGCONT);
-			usleep(QUEUE2_QUANTUM);
-			kill(pid3, SIGSTOP);
-		}
-		if (running4 > 0 && queue4 == 2){
-			if (!first4){ gettimeofday(&t4_start, NULL); first4 = 1; }
-			kill(pid4, SIGCONT);
-			usleep(QUEUE2_QUANTUM);
-			kill(pid4, SIGSTOP);
-		}
-
-		// Check for completion and record end time
-		if (running1 > 0 && waitpid(pid1, &running1, WNOHANG) != 0){
+			waitpid(pid1, &running1, 0);  // Block until P1 completes
 			gettimeofday(&t1_end, NULL);
 			running1 = 0;
 		}
-		if (running2 > 0 && waitpid(pid2, &running2, WNOHANG) != 0){
+		else if (running2 > 0 && queue2 == 1){
+			if (!first2){ gettimeofday(&t2_start, NULL); first2 = 1; }
+			kill(pid2, SIGCONT);
+			waitpid(pid2, &running2, 0);  // Block until P2 completes
 			gettimeofday(&t2_end, NULL);
 			running2 = 0;
 		}
-		if (running3 > 0 && waitpid(pid3, &running3, WNOHANG) != 0){
+		else if (running3 > 0 && queue3 == 1){
+			if (!first3){ gettimeofday(&t3_start, NULL); first3 = 1; }
+			kill(pid3, SIGCONT);
+			waitpid(pid3, &running3, 0);  // Block until P3 completes
 			gettimeofday(&t3_end, NULL);
 			running3 = 0;
 		}
-		if (running4 > 0 && waitpid(pid4, &running4, WNOHANG) != 0){
+		else if (running4 > 0 && queue4 == 1){
+			if (!first4){ gettimeofday(&t4_start, NULL); first4 = 1; }
+			kill(pid4, SIGCONT);
+			waitpid(pid4, &running4, 0);  // Block until P4 completes
+			gettimeofday(&t4_end, NULL);
+			running4 = 0;
+		}
+
+		// Check for completion (only needed for Queue 0 processes)
+		if (running1 > 0 && queue1 == 0 && waitpid(pid1, &running1, WNOHANG) != 0){
+			gettimeofday(&t1_end, NULL);
+			running1 = 0;
+		}
+		if (running2 > 0 && queue2 == 0 && waitpid(pid2, &running2, WNOHANG) != 0){
+			gettimeofday(&t2_end, NULL);
+			running2 = 0;
+		}
+		if (running3 > 0 && queue3 == 0 && waitpid(pid3, &running3, WNOHANG) != 0){
+			gettimeofday(&t3_end, NULL);
+			running3 = 0;
+		}
+		if (running4 > 0 && queue4 == 0 && waitpid(pid4, &running4, WNOHANG) != 0){
 			gettimeofday(&t4_end, NULL);
 			running4 = 0;
 		}
