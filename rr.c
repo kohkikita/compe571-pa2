@@ -39,7 +39,8 @@ void myfunction(int param){
 int main(){
 	pid_t pid1, pid2, pid3, pid4;
 	int running1, running2, running3, running4;
-	struct timeval t0, t1, t2, t3, t4;
+	struct timeval t1_start, t2_start, t3_start, t4_start;
+	struct timeval t1_end, t2_end, t3_end, t4_end;
 	int first1 = 0, first2 = 0, first3 = 0, first4 = 0;
 
 	pid1 = fork();
@@ -58,8 +59,6 @@ int main(){
 	if (pid4 == 0){ myfunction(WORKLOAD4); exit(0); }
 	kill(pid4, SIGSTOP);
 
-	gettimeofday(&t0, NULL);
-
 	running1 = 1;
 	running2 = 1;
 	running3 = 1;
@@ -67,46 +66,60 @@ int main(){
 
 	while (running1 > 0 || running2 > 0 || running3 > 0 || running4 > 0){
 		if (running1 > 0){
+			if (!first1){ gettimeofday(&t1_start, NULL); first1 = 1; }
 			kill(pid1, SIGCONT);
-			if (!first1){ gettimeofday(&t1, NULL); first1 = 1; }
 			usleep(QUANTUM1);
 			kill(pid1, SIGSTOP);
 		}
 		if (running2 > 0){
+			if (!first2){ gettimeofday(&t2_start, NULL); first2 = 1; }
 			kill(pid2, SIGCONT);
-			if (!first2){ gettimeofday(&t2, NULL); first2 = 1; }
 			usleep(QUANTUM2);
 			kill(pid2, SIGSTOP);
 		}
 		if (running3 > 0){
+			if (!first3){ gettimeofday(&t3_start, NULL); first3 = 1; }
 			kill(pid3, SIGCONT);
-			if (!first3){ gettimeofday(&t3, NULL); first3 = 1; }
 			usleep(QUANTUM3);
 			kill(pid3, SIGSTOP);
 		}
 		if (running4 > 0){
+			if (!first4){ gettimeofday(&t4_start, NULL); first4 = 1; }
 			kill(pid4, SIGCONT);
-			if (!first4){ gettimeofday(&t4, NULL); first4 = 1; }
 			usleep(QUANTUM4);
 			kill(pid4, SIGSTOP);
 		}
-		waitpid(pid1, &running1, WNOHANG);
-		waitpid(pid2, &running2, WNOHANG);
-		waitpid(pid3, &running3, WNOHANG);
-		waitpid(pid4, &running4, WNOHANG);
+		
+		// Check for completion and record end time
+		if (running1 > 0 && waitpid(pid1, &running1, WNOHANG) != 0){
+			gettimeofday(&t1_end, NULL);
+			running1 = 0;
+		}
+		if (running2 > 0 && waitpid(pid2, &running2, WNOHANG) != 0){
+			gettimeofday(&t2_end, NULL);
+			running2 = 0;
+		}
+		if (running3 > 0 && waitpid(pid3, &running3, WNOHANG) != 0){
+			gettimeofday(&t3_end, NULL);
+			running3 = 0;
+		}
+		if (running4 > 0 && waitpid(pid4, &running4, WNOHANG) != 0){
+			gettimeofday(&t4_end, NULL);
+			running4 = 0;
+		}
 	}
 
-	long r1 = (t1.tv_sec - t0.tv_sec) * 1000000L + (t1.tv_usec - t0.tv_usec);
-	long r2 = (t2.tv_sec - t0.tv_sec) * 1000000L + (t2.tv_usec - t0.tv_usec);
-	long r3 = (t3.tv_sec - t0.tv_sec) * 1000000L + (t3.tv_usec - t0.tv_usec);
-	long r4 = (t4.tv_sec - t0.tv_sec) * 1000000L + (t4.tv_usec - t0.tv_usec);
-	double avg = (r1 + r2 + r3 + r4) / 4.0;
+	long exec1 = (t1_end.tv_sec - t1_start.tv_sec) * 1000000L + (t1_end.tv_usec - t1_start.tv_usec);
+	long exec2 = (t2_end.tv_sec - t2_start.tv_sec) * 1000000L + (t2_end.tv_usec - t2_start.tv_usec);
+	long exec3 = (t3_end.tv_sec - t3_start.tv_sec) * 1000000L + (t3_end.tv_usec - t3_start.tv_usec);
+	long exec4 = (t4_end.tv_sec - t4_start.tv_sec) * 1000000L + (t4_end.tv_usec - t4_start.tv_usec);
+	double avg = (exec1 + exec2 + exec3 + exec4) / 4.0;
 
-	printf("P1 response_time_us %ld\n", r1);
-	printf("P2 response_time_us %ld\n", r2);
-	printf("P3 response_time_us %ld\n", r3);
-	printf("P4 response_time_us %ld\n", r4);
-	printf("Average response_time_us %.2f\n", avg);
+	printf("P1 execution_time_us %ld\n", exec1);
+	printf("P2 execution_time_us %ld\n", exec2);
+	printf("P3 execution_time_us %ld\n", exec3);
+	printf("P4 execution_time_us %ld\n", exec4);
+	printf("Average execution_time_us %.2f\n", avg);
 
 	return 0;
 }
